@@ -1,0 +1,71 @@
+%name IrcParser
+%start message
+
+datatype origin = 
+    User of string * string option * string option
+  | Server of string
+  | NoOrigin
+
+type message = {prefix : origin, command : string, params : string list}
+
+%nonterm sp of string
+%nonterm _ of string
+%nonterm name of string
+%nonterm namechar of string
+%nonterm nick of string
+%nonterm servername of string
+%nonterm host of string
+%nonterm user of string
+%nonterm message of message
+%nonterm prefix of origin
+%nonterm nickprefix of origin
+%nonterm command of string
+%nonterm params of string list
+%nonterm middle of string
+%nonterm middlerest of string
+%nonterm trailing of string
+%nonterm reserved of string
+
+%%
+sp <- " ".
+_  <- sp _ / sp.
+
+
+message <- r:prefix _ c:command p:params -> ({prefix=($r), command=($c), params=($p)})
+         / c:command p:params -> ({prefix=NoOrigin, command=($c), params=($p)}).
+
+prefix     <- ":" n:nick "!" u:user "@" h:host -> (User($n,SOME($u),SOME($h)))
+            / ":" n:nick "!" u:user -> (User($n,SOME($u),NONE))
+            / ":" n:nick "@" h:host -> (User($n,NONE,SOME($h)))
+            / ":" n:nick -> (User($n,NONE,NONE)).
+
+command <- !digit !sp c:char s:name -> ($c ^ $s)
+         / d1:digit d2:digit d3:digit -> ($d1 ^ $d2 ^ $d3)
+         .
+
+params <- _ ":" t:trailing -> ([$t])
+        / _ m:middle p:params -> ($m :: $p)
+        / -> ([])
+        .
+
+middle <- !sp m:middlerest -> ($m).
+
+middlerest <- !sp c:char m:middlerest -> ($c ^ $m)
+            / -> ("").
+
+trailing <- c:char t:trailing -> ($c ^ $t)
+          / -> ("").
+
+reserved <- ":" / "@" / "!".
+
+nick <- name.
+
+user <- name.
+
+servername <- name.
+
+host <- name.
+
+name     <- c: namechar n: name -> ($c ^ $n) / namechar.
+namechar <- !reserved !sp char.
+
